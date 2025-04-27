@@ -1,0 +1,20 @@
+Nether Gauntlet Texture Guide
+===========================
+
+This file provides guidance for creating the Nether Gauntlet texture.
+
+Texture Requirements:
+- Size: 16x16 pixels
+- Format: PNG with transparency
+- Color scheme: Reds, oranges, and dark grays to match Nether theme
+
+Design Suggestions:
+- Base: Dark gray/black metal appearance
+- Accents: Glowing orange/red lines to represent lava/fire energy
+- Knuckles: Could have small spikes or magma-like protrusions
+- Palm area: Consider adding a small magma/fire symbol
+
+The texture should look like a powerful gauntlet that harnesses the power of the Nether.
+When worn, it should appear on the player's hand when viewed in first-person mode.
+
+Save your completed texture as "nether_gauntlet.png" in this same directory.

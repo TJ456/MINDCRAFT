@@ -1,0 +1,33 @@
+{
+  "display": {
+    "icon": {
+      "item": "nethergauntlet:nether_gauntlet"
+    },
+    "title": {
+      "translate": "advancements.nethergauntlet.nether_power.title"
+    },
+    "description": {
+      "translate": "advancements.nethergauntlet.nether_power.description"
+    },
+    "frame": "goal",
+    "show_toast": true,
+    "announce_to_chat": true,
+    "hidden": false
+  },
+  "parent": "minecraft:nether/find_fortress",
+  "criteria": {
+    "nether_gauntlet": {
+      "trigger": "minecraft:inventory_changed",
+      "conditions": {
+        "items": [
+          {
+            "items": ["nethergauntlet:nether_gauntlet"]
+          }
+        ]
+      }
+    }
+  },
+  "rewards": {
+    "experience": 100
+  }
+}
