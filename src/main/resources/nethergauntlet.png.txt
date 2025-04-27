@@ -1,0 +1,11 @@
+PLACEHOLDER FOR NETHER GAUNTLET MOD LOGO
+
+This file is a placeholder for the actual nethergauntlet.png logo.
+
+To create the actual logo:
+1. Create a 128x128 pixel PNG image
+2. Design a logo that represents the Nether Gauntlet mod
+3. Save it as "nethergauntlet.png" in this directory
+4. Delete this placeholder file
+
+The logo will be displayed in the Minecraft mods menu.

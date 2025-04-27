@@ -1,0 +1,11 @@
+PLACEHOLDER FOR NETHER GAUNTLET TEXTURE
+
+This file is a placeholder for the actual nether_gauntlet.png texture.
+
+To create the actual texture:
+1. Create a 16x16 pixel PNG image
+2. Design it following the guidelines in nether_gauntlet.txt
+3. Save it as "nether_gauntlet.png" in this directory
+4. Delete this placeholder file
+
+The texture should look like a powerful gauntlet with Nether-themed elements.
