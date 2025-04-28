@@ -22,6 +22,37 @@ After installing JDK 17:
 3. Run: `.\gradlew.bat build`
 4. The compiled mod will be in the `build/libs` directory
 
+## Testing with Forge Development Environment (No Minecraft Required)
+
+If you want to test the mod without purchasing Minecraft, you can use the Forge development client:
+
+1. Make sure you've completed the "Building the Mod" steps above
+2. Run the following command in your mod directory:
+   ```
+   .\gradlew.bat runClient
+   ```
+3. This will launch a development version of Minecraft with your mod already installed
+4. The development client gives you full access to test all mod features
+5. You can record this gameplay using screen recording software like OBS Studio
+
+### Recording Your Mod Gameplay:
+
+1. Download and install OBS Studio from: https://obsproject.com/
+2. Setup basic recording:
+   - Open OBS Studio
+   - Add a "Display Capture" source to capture your screen
+   - Add an "Audio Output Capture" to record game sounds
+3. Start the Forge development client using `.\gradlew.bat runClient`
+4. Click "Start Recording" in OBS before testing your mod
+5. Demonstrate all features of your Nether Gauntlet mod:
+   - Show crafting the item
+   - Demonstrate fireball shooting
+   - Show explosion effects on enemies
+   - Demonstrate lava surfing
+   - Show the ring of fire ability
+   - Demonstrate dimension teleportation if possible
+6. Save the recording and edit as needed for your hackathon submission
+
 ## Running the Mod
 
 1. Install Minecraft Forge for version 1.19.2

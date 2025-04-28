@@ -46,7 +46,7 @@ public class NetherGauntletItem extends Item {
     private static final float PARTICLE_SPEED = 0.1F; // Speed of particles
     private static final int EMPOWERMENT_DURATION = 200; // 10 seconds of empowerment
     private static final int NETHER_TELEPORT_COOLDOWN = 600; // 30 seconds cooldown for nether teleportation
-    
+
     // Track the empowerment state for each player - using UUID for persistence when players disconnect/reconnect
     private static final Map<UUID, Integer> empowermentTicks = new ConcurrentHashMap<>();
     // Track the teleport cooldown for each player
@@ -76,24 +76,26 @@ public class NetherGauntletItem extends Item {
 
         // Create explosion when hitting enemies
         if (!level.isClientSide) {
-            boolean isEmpowered = attacker instanceof Player player && 
-                                 empowermentTicks.getOrDefault(player.getUUID(), 0) > 0;
-            
+            boolean isEmpowered = attacker instanceof Player && 
+                                 empowermentTicks.getOrDefault(((Player) attacker).getUUID(), 0) > 0;
+
             // Enhanced explosion if empowered
             float power = isEmpowered ? EXPLOSION_POWER * 2.0F : EXPLOSION_POWER;
-            
+
             level.explode(attacker, target.getX(), target.getY(), target.getZ(),
                     power, Explosion.BlockInteraction.NONE);
 
             // Play explosion sound
             level.playSound(null, target.getX(), target.getY(), target.getZ(),
                     SoundEvents.GENERIC_EXPLODE, SoundSource.PLAYERS, 0.5F, 1.0F);
-            
+
             // Extra effect when empowered: Set enemies on fire and apply weakness
-            if (isEmpowered && target instanceof LivingEntity living) {
-                living.setSecondsOnFire(10);
-                living.addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 200, 1));
-                
+            if (isEmpowered) {
+                target.setSecondsOnFire(10);
+                if (target instanceof LivingEntity) {
+                    ((LivingEntity) target).addEffect(new MobEffectInstance(MobEffects.WEAKNESS, 200, 1));
+                }
+
                 // Chance to summon a friendly Blaze that will attack your enemies
                 if (level.random.nextFloat() < 0.25f) {
                     Blaze blaze = EntityType.BLAZE.create(level);
@@ -101,11 +103,11 @@ public class NetherGauntletItem extends Item {
                         blaze.setPos(target.getX(), target.getY() + 1, target.getZ());
                         blaze.setCustomName(Component.literal("Nether Guardian"));
                         level.addFreshEntity(blaze);
-                        
+
                         // Make the blaze temporary (will despawn after 30 seconds)
                         blaze.getPersistentData().putBoolean("NetherGauntletSummon", true);
                         blaze.getPersistentData().putLong("DespawnTime", level.getGameTime() + 600L);
-                        
+
                         // Blaze should target the entity you attacked
                         if (target instanceof LivingEntity) {
                             blaze.setLastHurtByMob((LivingEntity) target);
@@ -119,12 +121,12 @@ public class NetherGauntletItem extends Item {
         } else {
             // Client-side particle effects
             RandomSource random = level.getRandom();
-            
+
             // More particles if empowered
-            boolean isEmpowered = attacker instanceof Player player && 
-                                 empowermentTicks.getOrDefault(player.getUUID(), 0) > 0;
+            boolean isEmpowered = attacker instanceof Player && 
+                                 empowermentTicks.getOrDefault(((Player) attacker).getUUID(), 0) > 0;
             int particleCount = isEmpowered ? 40 : 20;
-            
+
             for (int i = 0; i < particleCount; i++) {
                 double offsetX = random.nextGaussian() * 0.2;
                 double offsetY = random.nextGaussian() * 0.2;
@@ -150,58 +152,58 @@ public class NetherGauntletItem extends Item {
     @Override
     public InteractionResultHolder<ItemStack> use(Level level, Player player, InteractionHand hand) {
         ItemStack stack = player.getItemInHand(hand);
-        
+
         // Handle nether teleportation when charged and sneaking
         if (player.isCrouching() && isCharged.getOrDefault(player.getUUID(), false)) {
             if (!level.isClientSide) {
                 if (teleportCooldowns.getOrDefault(player.getUUID(), 0) <= 0) {
                     // Start teleportation
                     handleNetherTeleport(player, level);
-                    
+
                     // Reset charged state
                     isCharged.put(player.getUUID(), false);
-                    
+
                     // Set cooldown
                     teleportCooldowns.put(player.getUUID(), NETHER_TELEPORT_COOLDOWN);
-                    
+
                     // Damage the item more for this powerful ability
                     stack.hurtAndBreak(20, player, (entity) -> entity.broadcastBreakEvent(hand));
-                    
+
                     return InteractionResultHolder.success(stack);
                 } else {
                     // Inform player of remaining cooldown
                     int remainingSeconds = teleportCooldowns.get(player.getUUID()) / 20;
-                    player.displayClientMessage(Component.literal("§cTeleportation on cooldown for " + 
+                    player.displayClientMessage(Component.literal("§cTeleportation on cooldown for " +
                                               remainingSeconds + " more seconds"), true);
                 }
             }
             return InteractionResultHolder.fail(stack);
         }
-        
+
         // Check if player is on cooldown for normal attacks
         if (!player.getCooldowns().isOnCooldown(this)) {
             // If player is holding shift, create a ring of fire instead of a fireball
             if (player.isCrouching()) {
                 if (!level.isClientSide) {
                     createRingOfFire(level, player);
-                    
+
                     // Play sound
                     level.playSound(null, player.getX(), player.getY(), player.getZ(),
                             SoundEvents.FIRECHARGE_USE, SoundSource.PLAYERS, 1.0F, 0.8F);
-                    
+
                     // Set cooldown (longer for this special attack)
                     player.getCooldowns().addCooldown(this, FIREBALL_COOLDOWN * 3);
-                    
+
                     // Damage the item
                     stack.hurtAndBreak(5, player, (entity) -> entity.broadcastBreakEvent(hand));
                 } else {
                     // Client-side ring particles
                     createRingOfFireParticles(level, player);
                 }
-                
+
                 return InteractionResultHolder.success(stack);
             }
-        
+
             Vec3 look = player.getLookAngle();
             boolean isEmpowered = empowermentTicks.getOrDefault(player.getUUID(), 0) > 0;
 
@@ -209,7 +211,7 @@ public class NetherGauntletItem extends Item {
             if (!level.isClientSide) {
                 // Create multiple fireballs if empowered
                 int fireballCount = isEmpowered ? 3 : 1;
-                
+
                 for (int i = 0; i < fireballCount; i++) {
                     SmallFireball fireball = new SmallFireball(
                             level,
@@ -223,7 +225,7 @@ public class NetherGauntletItem extends Item {
                             player.getX() + look.x * 1.5,
                             player.getY() + player.getEyeHeight() - 0.1,
                             player.getZ() + look.z * 1.5);
-                    
+
                     // Make empowered fireballs more powerful
                     if (isEmpowered) {
                         fireball.getPersistentData().putBoolean("EmpoweredFireball", true);
@@ -282,46 +284,46 @@ public class NetherGauntletItem extends Item {
 
         return InteractionResultHolder.fail(stack);
     }
-    
+
     // Create a ring of fire around the player
     private void createRingOfFire(Level level, Player player) {
         int radius = 3;
         BlockPos playerPos = player.blockPosition();
         boolean isEmpowered = empowermentTicks.getOrDefault(player.getUUID(), 0) > 0;
-        
+
         // Larger and more powerful ring when empowered
         if (isEmpowered) {
             radius = 5;
         }
-        
+
         for (int x = -radius; x <= radius; x++) {
             for (int z = -radius; z <= radius; z++) {
                 // Skip the center where the player is standing
                 if (x == 0 && z == 0) continue;
-                
+
                 // Create a circle/ring
                 if (x*x + z*z <= radius*radius && x*x + z*z >= (radius-1)*(radius-1)) {
                     BlockPos firePos = playerPos.offset(x, 0, z);
                     BlockPos belowPos = firePos.below();
-                    
+
                     // Only place fire if there's a solid block below and air at the position
-                    if (level.getBlockState(belowPos).isFaceSturdy(level, belowPos, Direction.UP) && 
+                    if (level.getBlockState(belowPos).isFaceSturdy(level, belowPos, Direction.UP) &&
                         level.getBlockState(firePos).isAir()) {
-                        
+
                         // Place fire block
                         level.setBlockAndUpdate(firePos, Blocks.FIRE.defaultBlockState());
-                        
+
                         // If empowered, damage and push back nearby enemies
                         if (isEmpowered) {
-                            for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class, 
+                            for (LivingEntity entity : level.getEntitiesOfClass(LivingEntity.class,
                                                     new AABB(firePos).inflate(1.5))) {
                                 if (entity != player) {
                                     entity.hurt(DamageSource.IN_FIRE, 4);
-                                    
+
                                     // Push entities away from center
                                     Vec3 pushDir = entity.position().subtract(player.position()).normalize();
                                     entity.push(pushDir.x * 1.5, 0.5, pushDir.z * 1.5);
-                                    
+
                                     // Set on fire
                                     entity.setSecondsOnFire(5);
                                 }
@@ -332,53 +334,54 @@ public class NetherGauntletItem extends Item {
             }
         }
     }
-    
+
     // Create particle effects for the ring of fire
     private void createRingOfFireParticles(Level level, Player player) {
         int radius = 3;
         boolean isEmpowered = empowermentTicks.getOrDefault(player.getUUID(), 0) > 0;
-        
+
         // Larger ring when empowered
         if (isEmpowered) {
             radius = 5;
         }
-        
+
         RandomSource random = level.getRandom();
-        
+
         // Create particles in a ring around the player
         for (int i = 0; i < 60; i++) {
             double angle = 2 * Math.PI * random.nextDouble();
             double distance = (radius - 0.5) + random.nextDouble();
-            
+
             double x = Math.cos(angle) * distance;
             double z = Math.sin(angle) * distance;
-            
+
             level.addParticle(
                 isEmpowered ? ParticleTypes.SOUL_FIRE_FLAME : ParticleTypes.FLAME,
-                player.getX() + x, 
-                player.getY() + 0.1, 
+                player.getX() + x,
+                player.getY() + 0.1,
                 player.getZ() + z,
                 0, 0.1, 0
             );
-            
+
             // Add extra soul particles for empowered
             if (isEmpowered && i % 3 == 0) {
                 level.addParticle(
                     ParticleTypes.SOUL,
-                    player.getX() + x, 
-                    player.getY() + 0.5, 
+                    player.getX() + x,
+                    player.getY() + 0.5,
                     player.getZ() + z,
                     0, 0.05, 0
                 );
             }
         }
     }
-    
+
     // Handle dimensional teleportation
     private void handleNetherTeleport(Player player, Level level) {
-        if (player instanceof ServerPlayer serverPlayer) {
+        if (player instanceof ServerPlayer) {
+            ServerPlayer serverPlayer = (ServerPlayer) player;
             ServerLevel destination;
-            
+
             // If in the nether, go to the overworld. If in the overworld, go to the nether.
             if (level.dimension().equals(Level.NETHER)) {
                 destination = serverPlayer.server.getLevel(Level.OVERWORLD);
@@ -387,35 +390,35 @@ public class NetherGauntletItem extends Item {
                 destination = serverPlayer.server.getLevel(Level.NETHER);
                 player.displayClientMessage(Component.literal("§cEntering the Nether..."), true);
             }
-            
+
             if (destination != null) {
                 // Store original position to calculate appropriate destination
                 double scale = level.dimension().equals(Level.NETHER) ? 8.0 : 0.125;
-                
+
                 // Calculate target position
                 BlockPos targetPos = new BlockPos(
                     player.getX() * scale,
                     player.getY(),
                     player.getZ() * scale
                 );
-                
+
                 // Find a safe spot to teleport to
                 BlockPos safePos = findSafeSpot(destination, targetPos);
-                
+
                 // Teleport player
-                serverPlayer.teleportTo(destination, 
-                    safePos.getX() + 0.5, 
-                    safePos.getY(), 
+                serverPlayer.teleportTo(destination,
+                    safePos.getX() + 0.5,
+                    safePos.getY(),
                     safePos.getZ() + 0.5,
-                    player.getYRot(), 
+                    player.getYRot(),
                     player.getXRot());
-                
+
                 // Play teleport sound
-                destination.playSound(null, safePos, 
-                    SoundEvents.PORTAL_TRAVEL, 
-                    SoundSource.PLAYERS, 
+                destination.playSound(null, safePos,
+                    SoundEvents.PORTAL_TRAVEL,
+                    SoundSource.PLAYERS,
                     1.0F, 1.0F);
-                
+
                 // Create portal effect particles
                 for(int i = 0; i < 50; i++) {
                     destination.sendParticles(
@@ -430,23 +433,23 @@ public class NetherGauntletItem extends Item {
                         0.5
                     );
                 }
-                
+
                 // Grant temporary fire resistance after teleportation
                 player.addEffect(new MobEffectInstance(MobEffects.FIRE_RESISTANCE, 600, 0));
             }
         }
     }
-    
+
     // Find a safe location to teleport to
     private BlockPos findSafeSpot(ServerLevel level, BlockPos targetPos) {
         // Start checking at the target position and work up and down
         BlockPos.MutableBlockPos mutablePos = new BlockPos.MutableBlockPos(targetPos.getX(), targetPos.getY(), targetPos.getZ());
-        
+
         // Check the target position first
         if (isSafeSpot(level, mutablePos)) {
             return mutablePos.immutable();
         }
-        
+
         // Check above - more likely to find air in the Nether
         for (int y = 1; y < 20; y++) {
             mutablePos.set(targetPos.getX(), targetPos.getY() + y, targetPos.getZ());
@@ -454,7 +457,7 @@ public class NetherGauntletItem extends Item {
                 return mutablePos.immutable();
             }
         }
-        
+
         // Check below
         for (int y = 1; y < 20; y++) {
             mutablePos.set(targetPos.getX(), targetPos.getY() - y, targetPos.getZ());
@@ -462,12 +465,12 @@ public class NetherGauntletItem extends Item {
                 return mutablePos.immutable();
             }
         }
-        
+
         // If we couldn't find a safe spot, try a random offset
         for (int attempts = 0; attempts < 16; attempts++) {
             int offsetX = level.getRandom().nextInt(16) - 8;
             int offsetZ = level.getRandom().nextInt(16) - 8;
-            
+
             for (int y = -10; y < 10; y++) {
                 mutablePos.set(targetPos.getX() + offsetX, targetPos.getY() + y, targetPos.getZ() + offsetZ);
                 if (isSafeSpot(level, mutablePos)) {
@@ -475,65 +478,66 @@ public class NetherGauntletItem extends Item {
                 }
             }
         }
-        
+
         // If we still couldn't find a spot, just use the target position
         // The player might suffocate, but they have the gauntlet to help them out
         return targetPos;
     }
-    
+
     // Check if a position is safe to teleport to (2 blocks of clearance)
     private boolean isSafeSpot(ServerLevel level, BlockPos pos) {
         // Need two blocks of clearance for the player
-        boolean blockClear = level.getBlockState(pos).getMaterial().isReplaceable() && 
+        boolean blockClear = level.getBlockState(pos).getMaterial().isReplaceable() &&
                            level.getBlockState(pos.above()).getMaterial().isReplaceable();
-        
+
         // Need something solid below
-        boolean hasSolidGround = !level.getBlockState(pos.below()).getMaterial().isReplaceable() || 
+        boolean hasSolidGround = !level.getBlockState(pos.below()).getMaterial().isReplaceable() ||
                                 level.getBlockState(pos.below()).getMaterial() == Material.LAVA;
-        
+
         // Check for dangerous blocks
-        boolean isDangerous = level.getBlockState(pos).is(Blocks.LAVA) || 
+        boolean isDangerous = level.getBlockState(pos).is(Blocks.LAVA) ||
                            level.getBlockState(pos).is(Blocks.FIRE) ||
                            level.getBlockState(pos.above()).is(Blocks.LAVA) ||
                            level.getBlockState(pos.above()).is(Blocks.FIRE);
-        
+
         return blockClear && hasSolidGround && !isDangerous;
     }
 
     @Override
     public void inventoryTick(ItemStack stack, Level level, Entity entity, int slotId, boolean isSelected) {
         // Check if entity is a player
-        if (entity instanceof Player player) {
+        if (entity instanceof Player) {
+            Player player = (Player) entity;
             boolean holdingGauntlet = isSelected || player.getOffhandItem() == stack;
-            
+
             // Update cooldowns
             if (!level.isClientSide) {
                 // Update teleport cooldown
                 if (teleportCooldowns.containsKey(player.getUUID()) && teleportCooldowns.get(player.getUUID()) > 0) {
                     teleportCooldowns.put(player.getUUID(), teleportCooldowns.get(player.getUUID()) - 1);
                 }
-                
+
                 // Update empowerment
                 if (empowermentTicks.containsKey(player.getUUID()) && empowermentTicks.get(player.getUUID()) > 0) {
                     empowermentTicks.put(player.getUUID(), empowermentTicks.get(player.getUUID()) - 1);
-                    
+
                     // Notify player when empowerment ends
                     if (empowermentTicks.get(player.getUUID()) == 0) {
                         player.displayClientMessage(Component.literal("§cThe gauntlet's power fades..."), true);
                     }
                 }
             }
-            
+
             if (holdingGauntlet) {
                 // Always make player fire resistant while holding the gauntlet
                 player.setRemainingFireTicks(0);
-                
+
                 // Check for charging near lava when sneaking
                 if (player.isCrouching() && !isCharged.getOrDefault(player.getUUID(), false)) {
                     // Check if player is near lava (within 3 blocks)
                     boolean nearLava = false;
                     BlockPos playerPos = player.blockPosition();
-                    
+
                     for (int x = -3; x <= 3 && !nearLava; x++) {
                         for (int y = -3; y <= 3 && !nearLava; y++) {
                             for (int z = -3; z <= 3 && !nearLava; z++) {
@@ -545,7 +549,7 @@ public class NetherGauntletItem extends Item {
                             }
                         }
                     }
-                    
+
                     if (nearLava) {
                         // Track charging progress
                         if (!level.isClientSide) {
@@ -553,7 +557,7 @@ public class NetherGauntletItem extends Item {
                             int chargingTicks = player.getPersistentData().getInt("GauntletChargingTicks");
                             chargingTicks++;
                             player.getPersistentData().putInt("GauntletChargingTicks", chargingTicks);
-                            
+
                             // Every second, show charging progress
                             if (chargingTicks % 20 == 0) {
                                 int seconds = chargingTicks / 20;
@@ -620,7 +624,7 @@ public class NetherGauntletItem extends Item {
                     } else if (empowermentTicks.getOrDefault(player.getUUID(), 0) > 0) {
                         particleType = ParticleTypes.FLAME;
                     }
-                    
+
                     // Add ambient particles
                     for (int i = 0; i < 2; i++) {
                         double offsetX = random.nextGaussian() * 0.1;
@@ -635,7 +639,7 @@ public class NetherGauntletItem extends Item {
                             offsetZ * PARTICLE_SPEED
                         );
                     }
-                    
+
                     // Extra particles for special states
                     if (isCharged.getOrDefault(player.getUUID(), false) && random.nextBoolean()) {
                         level.addParticle(
@@ -647,16 +651,16 @@ public class NetherGauntletItem extends Item {
                         );
                     }
                 }
-                
+
                 // Detect when player is near lava block and offer empowerment
                 if (!level.isClientSide && level.getGameTime() % 20 == 0) {  // Once per second
                     if (empowermentTicks.getOrDefault(player.getUUID(), 0) <= 0) {  // Not already empowered
                         BlockPos belowPos = player.blockPosition().below();
-                        
+
                         // If standing on netherrack near lava, offer empowerment
                         boolean onNetherrack = level.getBlockState(belowPos).is(Blocks.NETHERRACK);
                         boolean nearLava = false;
-                        
+
                         if (onNetherrack) {
                             // Search for lava in a 3x3x3 area
                             for (int x = -2; x <= 2 && !nearLava; x++) {
@@ -669,12 +673,12 @@ public class NetherGauntletItem extends Item {
                                     }
                                 }
                             }
-                            
+
                             if (nearLava && level.getRandom().nextFloat() < 0.4f) {  // 40% chance
                                 // Empower the gauntlet
                                 empowermentTicks.put(player.getUUID(), EMPOWERMENT_DURATION);
                                 player.displayClientMessage(Component.literal("§6The gauntlet draws power from the nearby lava!"), true);
-                                
+
                                 // Play empowerment sound
                                 level.playSound(null, player.getX(), player.getY(), player.getZ(),
                                         SoundEvents.BLAZE_AMBIENT, SoundSource.PLAYERS, 1.0F, 0.8F);
@@ -689,20 +693,20 @@ public class NetherGauntletItem extends Item {
                 if (level.getBlockState(pos).getMaterial() == Material.LAVA) {
                     // Allow player to "surf" on lava
                     player.fallDistance = 0.0F;
-                    
+
                     // Faster surfing when empowered
                     double speedMultiplier = empowermentTicks.getOrDefault(player.getUUID(), 0) > 0 ? 1.3 : 1.1;
                     player.setDeltaMovement(player.getDeltaMovement().multiply(speedMultiplier, 0, speedMultiplier));
-                    
+
                     // Visual effect - create temporary obsidian under player
                     if (!level.isClientSide && level.getGameTime() % 10 == 0) {
                         BlockPos tempBlock = player.blockPosition().below();
                         if (level.getBlockState(tempBlock).getMaterial() == Material.LAVA) {
                             // Create obsidian or magma block based on empowerment
-                            BlockState blockState = empowermentTicks.getOrDefault(player.getUUID(), 0) > 0 ? 
-                                                Blocks.MAGMA_BLOCK.defaultBlockState() : 
+                            BlockState blockState = empowermentTicks.getOrDefault(player.getUUID(), 0) > 0 ?
+                                                Blocks.MAGMA_BLOCK.defaultBlockState() :
                                                 Blocks.OBSIDIAN.defaultBlockState();
-                            
+
                             level.setBlockAndUpdate(tempBlock, blockState);
 
                             // Schedule the block to return to lava
@@ -718,7 +722,7 @@ public class NetherGauntletItem extends Item {
                             double offsetZ = random.nextGaussian() * 0.2;
 
                             level.addParticle(
-                                empowermentTicks.getOrDefault(player.getUUID(), 0) > 0 ? 
+                                empowermentTicks.getOrDefault(player.getUUID(), 0) > 0 ?
                                     ParticleTypes.FLAME : ParticleTypes.LAVA,
                                 player.getX() + offsetX,
                                 player.getY(),
@@ -737,7 +741,7 @@ public class NetherGauntletItem extends Item {
         }
 
         super.inventoryTick(stack, level, entity, slotId, isSelected);
-        
+
         // Special code to handle summoned blazes despawning
         if (!level.isClientSide && entity.getType() == EntityType.BLAZE) {
             if (entity.getPersistentData().contains("NetherGauntletSummon")) {
